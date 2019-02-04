@@ -140,6 +140,7 @@ word16 LiesMesswerte( Messung *md, word16 *mpId){
 
 			//zähle messzeitpunkte pro id
 			switch((md+j)-> Id){
+			case 0:mpId[0]++;break;
 			case 1:mpId[1]++;break;
 			case 2:mpId[2]++;break;
 			case 3:mpId[3]++;break;
