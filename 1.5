@@ -1,0 +1,279 @@
+/*
+ Dateiname : analyse.c
+ Programm  : Gleitende Mittelwertberechnung über Messwerte derselben Messstelle
+             Beispielhafte Musterlösung für Aufgabe 001 aus POOL3
+ Eingaben  : keine (beim Programmaufruf)
+             Programmaufruf über Konsole. Aufruf mit: ./analyse
+ Ausgaben  : nicht verwendet (immer 0)
+ Autor     :
+ Version   : 01   vom   2013-01-09
+ */
+
+#include "analyse.h"
+
+/*
+ Funktion  : word16 BerechneMittelwerte(Messung *md, word16 MesswertId, word16 MittelwertFenster, word16 AnzahlMesswerte, word16 *mpId)
+ Aufgabe   : Berechnet die gleitenden Mittelwerte (double) ueber MittelwertFenster Messwerte (int) der
+ 	 	 	 Messtelle <MesswertId> aus dem nach aufsteigender MesswertId geordneten Messwertevektor md.
+ 	 	 	 Fuer die ersten MittelwertFenster-1 Messwerte wird als Mittelwert der Messwert genommen und
+ 	 	 	 als Status fuer den Mittelwert 1 gesetzt. Fuer berechnete Mittelwerte ist der Status 0.
+ Eingaben  : md = strukturierter Messwertevektor enthält Messwerte aller gelesenen Messstellen, wobei
+             die Messwerte einer Messtelle zeitlich und die Messstellen num. aufsteigend geordnet sind
+             MesswertId = Messtelle, fuer die die Mittelwerte berechnet werden
+             MittelwertFenster = Anzahl der in den Mittelwert einzubeziehenden Messwerte der Messstelle
+             AnzahlMesswerte = Gesamtzahl der Messwerte im Messwertevektor
+             mpId = Vektor mit Anzahl der Messzeitpunkte (Messwerte) je Messstelle
+ Ausgaben  : Anzahl der berechneten Mittelwerte
+ Autor     :
+ Version   : 01
+ Datum der letzten Änderung: 2013-01-09
+ */
+word16 BerechneMittelwerte(Messung *md, word16 MesswertId, word16 MittelwertFenster, word16 AnzahlMesswerte, word16 *mpId){
+	char NameAusgabedatei[] = "mittelwerte_0_00.txt";
+	char Ausgabezeile[81];
+	char FormatStr[]="\n%15d\t%14d\t%28g\t%6d";
+	word16 startIndex, AnzahlMittelwerte;
+	struct{
+		word16 ZeitIndex;
+		word16 Status;
+		word32 Wert;
+	} ganzzahligerMesswert[MAXMESSZEITPUNKTE]={{0}};
+	double Mittelwert=0, SummeFensterWerte=0, divisor;
+	word16 i,j;
+	FILE *fp;
+	for(i=0, startIndex=0;i<MesswertId;i++){
+		startIndex+=mpId[i];
+	}
+	printf("\n Ausgeben der verrechneten Messwerte und der Mittelwerte in Datei ...");
+	fp=fopen(NameAusgabedatei,"w+");
+	if(fp!=NULL){
+
+		sprintf(Ausgabezeile,"%s\t%s%d%s\t%s%d%s\t%s", "Messzeitpunkt T","Messwert X",MesswertId, "(T)", "Mittelwert ueber ", MittelwertFenster, " Messwerte", "Status" );
+		fwrite(Ausgabezeile,strlen(Ausgabezeile),1,fp);
+
+		fclose(fp);
+	}
+	return (AnzahlMittelwerte);
+}
+
+/*
+ Funktion  : word16 LiesMesswerte(Messung *md, word16 *mpId)
+ Aufgabe   : Liest maximal MAXMESSZEITPUNKTE strukturierte Messwerte aus der MESSDATEI
+ 	 	 	 für alle enthaltenen Messstellen in den Messwertevektor md und vermerkt die
+ 	 	 	 Anzahl der für jede Messstelle eingelesenen Messwerte im Vektor mpId
+ Eingaben  : md = strukturierter Messwertevektor enthält alle eingelesenen Messwerte in der
+ 	 	 	 von der MESSDATEI vorgegebenen Reihenfolge. Es wird erwartet, dass die Messzeitpunkte
+ 	 	 	 zu jeder Messstelle in aufsteigender Reihenfolge vorliegen.
+ 	 	 	 mpId = Vektor mit Anzahl der gelesenen Messwerte zu jeder erlaubten Messstelle (Id)
+ Ausgaben  : Anzahl gelesener Messwerte insgesamt
+ Autor     :
+ Version   : 01
+ Datum der letzten Änderung: 2013-01-09
+ */
+word16 LiesMesswerte( Messung *md, word16 *mpId){
+	word16 Spalte=0; //Position in EineZeile, wird benutzt um die aus der Datei ausgelesenen Messwerte in EineZeile zu übertragen. Wird nach jedem eingelesenen Zeichen um 1 hochgezählt
+	word16 j=0; //anzahl eingelesener messwerte / position in Messung. Wird nach dem einlesen jeder Zeile um 1 hochgezählt
+	word16 k=0,l=0;
+	//index für Id
+	char EineZeile[41];
+	char *eZp=NULL;																					//geändert *eZp=NULL
+	size_t result=0;
+	//zwischenspeicher der einzelnen stellen aus datei
+	char SpeicherStelle;
+	//zwischenspeicher der messwerte
+	char * pz=NULL;
+	//position in Zeile
+	word16 PosZeile=0;
+	//marker für nachkommastellen
+	BOOL Nachk=FALSE;
+	//abbruch des programms
+	char Abbruch='0';
+	//filepointer
+	FILE *fp;
+
+	//ausgabe der aktion die das programm macht auf dem bildschirm
+	printf("\n Einlesen der Messwerte von Datei ...\n");
+
+	//öffne messdatei lesend
+	fp=fopen(MESSDATEI,"r");
+
+	//prüfe ob datei vorhanden, wenn nicht gebe fehlermeldung aus und eingabeaufforderung zum beenden des programms
+	if(fp==NULL){
+		//Datei nicht vorhanden
+		printf("Einlesen nicht moeglich, Datei nicht vorhanden\n");
+		printf("Drücken sie enter zum beenden des Programms");
+		//eingabeaufforderung abbruch wird nur als temporäre variable genommen, wird nicht weiter verarbeitet
+		scanf("%c",&Abbruch);
+		//kehre zurück zur main
+		return 0;
+	}else{
+		//Datei vorhanden
+		//lese Dateiinhalt bis zum Ende der Datei
+		while((SpeicherStelle=fgetc(fp))!=EOF){
+			//setze bei jeder neuen Zeile die Position Spalte auf den Anfang von EineZeile
+			Spalte=0;
+			//lese jede zeile der Datei in EineZeile
+			while(SpeicherStelle!=10){
+				//ändere , in .
+				if(SpeicherStelle==','){
+					EineZeile[Spalte]='.';
+
+				}else{
+					//Lese Zahl aus Datei in die nächste Stelle in EineZeile
+					EineZeile[Spalte]=SpeicherStelle;
+
+				}
+				//Zähle Spalte hoch um das nächste Zeichen aus der Datei zu lesen
+				Spalte++;
+				//lese nächstes Zeichen aus Datei
+				SpeicherStelle=fgetc(fp);
+			}
+
+			//setze string ende
+			EineZeile[Spalte]='\0';
+
+			//Gebe zuletzt gelesene Zeile aus
+			printf("%s\n",EineZeile);
+
+			//schreibe Id in Messung.id (0.Zeichen)
+			(md+j)->Id=EineZeile[0]-48;
+
+			//zähle messzeitpunkte pro id
+			switch((md+j)-> Id){
+			case 1:mpId[1]++;break;
+			case 2:mpId[2]++;break;
+			case 3:mpId[3]++;break;
+			case 4:mpId[4]++;break;
+			case 5:mpId[5]++;break;
+			}
+
+
+
+
+			//schreibe Messzeitpunkt in Messung.ZeitIndex (2.Zeichen, das Zeichen nach dem 0. ist ein Punkt)
+			(md+j)->ZeitIndex=EineZeile[2]-48;
+
+			//schreibe Messwert in Messung.Wert (wandle ab dem 4. Zeichen bis zum string ende Zeichen um in eine float zahl)
+			(md+j)->Wert=atof(&EineZeile[4]);
+
+			//verarbeite nächste Zeile
+			j++;
+		}
+		//schließe datei
+		fclose(fp);
+	}
+	// Rückgabe der insgesamt eingelesenen Messwerte
+	return (j);
+}
+
+/*
+ Funktion  : BOOL LiesParameter(word16 *AnzahlWerte4MW, word16 *Id, word16 *AnzahlMesswerte)
+ Aufgabe   :
+ Eingaben  :
+ Ausgaben  :
+ Autor     : Kreiser
+ Version   : 01
+ Datum der letzten Änderung: 2013-01-09
+ */
+BOOL LiesParameter(word16 *AnzahlWerte4MW, word16 *Id, word16 *AnzahlMesswerte){
+	BOOL error = TRUE;
+	printf ("\nFuer welche MesswertId sollen Mittelwerte berechnet werden ? :\t");
+	scanf("%hd", Id);
+	fflush (stdin);
+	if (*Id < MAXMESSSTELLEN){
+		if (AnzahlMesswerte[*Id]>0){
+			printf ("\nWieviele Messwerte sollen im Mittelwert beruecksichtigt werden ? :\t");
+			scanf("%hd", AnzahlWerte4MW);
+			fflush (stdin);
+			if ((*AnzahlWerte4MW > 0) && (*AnzahlWerte4MW <= AnzahlMesswerte[*Id])){
+				error = FALSE;
+			}
+		}
+	}
+	return (error);
+}
+
+/*
+ Funktion  : word16 VerarbeiteMesswerte(Messung *md, word16 *mpId, word16 *AnzahlMesswerte)
+ Aufgabe   : Sortiert und vervollständigt den strukturierten Messwertevektor md:
+ 	 	 	 Sortierung aufsteigend nach MesstellenId
+ 	 	 	 Auffuellen fehlender Messzeitpunkte, falls zur MessstellenId Messwerte fuer einen
+ 	 	 	 vorausgehenden und einen nachfolgenden Messzeitpunkt vorhanden sind (eingelesen wurden).
+ 	 	 	 Fuer fehlende Messzeitpunkte wird der Wert des letzten eingelesenen Messzeitpunkts kopiert.
+ Eingaben  : md = strukturierter Messwertevektor enthält alle eingelesenen Messwerte in der
+ 	 	 	 von der MESSDATEI vorgegebenen Reihenfolge. Es wird erwartet, dass die Messzeitpunkte
+ 	 	 	 zu jeder Messstelle in aufsteigender Reihenfolge vorliegen.
+ 	 	 	 mpId = Vektor mit Anzahl der gelesenen Messwerte zu jeder erlaubten Messstelle
+ 	 	 	 AnzahlMesswerte = Anzahl der Werte im Vektor md
+ Ausgaben  : md = strukturierter Messwertevektor enthält vervollstaendigte Messwerte zu jeder
+ 	 	 	 zu jeder Messstelle in aufsteigender Reihenfolge der Messzeitpunkte. Dabei sind die
+ 	 	 	 Messstellen ebenfalls in aufsteigender Reihenfolge im Vektor hinterlegt.
+ 	 	 	 mpId = Vektor mit Anzahl der vervollstaendigten Messwerte zu jeder erlaubten Messstelle.
+ 	 	 	 AnzahlMesswerte = Anzahl der vervollstaendigten Werte im Vektor md
+ 	 	 	 Rueckgabewert: Anzahl ergaenzter Messwerte insgesamt (alle Messstellen)
+ Autor     :
+ Version   : 01
+ Datum der letzten Änderung: 2013-01-09
+ */
+word16 VerarbeiteMesswerte(Messung *md, word16 *mpId, word16 *AnzahlMesswerte){
+	word16 i,j,k, AnzahlErgaenzteMesswerte;
+	word32 ZeitIndex, maxZeitIndex[MAXMESSSTELLEN], minZeitIndex[MAXMESSSTELLEN];
+	Messung vMesswerte[MAXMESSWERTE]={0};
+	//minimalen und maximalen Zeitindex fuer die zu verarbeitenden Messstellen bestimmen
+
+	// Berechnung der Anzahl vorhandener Messzeitpunkte zur Messstelle und Anzahl der vorhandenen Messstellen
+
+	//Verarbeite alle erlaubten MessstellenIds
+	for(i=0,k=0;i<MAXMESSSTELLEN;i++){ //i: Laufindex Messwertevektor, k: Laufindex vervollst. Messwertevektor
+
+	} //for i
+	AnzahlErgaenzteMesswerte=k-*AnzahlMesswerte;
+	*AnzahlMesswerte=k; //Anzahl inkl. ergaenzter Messwerte
+	//Zurueckspeichern der verarbeiteten Messwerte in den Messwertevektor *md
+	//memcpy((*md+j)->Wert, (*md+j-1)->Wert, strlen((*md+j-1)->Wert));
+	return (AnzahlErgaenzteMesswerte);
+}
+
+int main(void){
+	Messung  Messwerte[MAXMESSWERTE]={{0}};
+	word16   AnzahlMesszeitpunkteId[MAXMESSSTELLEN]={0};
+	word16   AnzahlEingelesen, AnzahlMesswerte, AnzahlErgaenzteMesswerte, AnzahlWerteImMittelwert;
+	word16   AnzahlMittelwerte, Id, i;
+	BOOL     ende;
+
+	AnzahlEingelesen = LiesMesswerte(Messwerte, AnzahlMesszeitpunkteId);
+	printf ("\nAnzahl eingelesener Messwerte:\t %d", AnzahlEingelesen);
+
+	for(i=0;i<MAXMESSSTELLEN;i++){
+		if(AnzahlMesszeitpunkteId[i]>0){
+			printf ("\nAnzahl eingelesener Messwerte zur MesstellenId %d:\t %d", i, AnzahlMesszeitpunkteId[i]);
+		}
+	}
+
+
+	AnzahlErgaenzteMesswerte = VerarbeiteMesswerte(Messwerte, AnzahlMesszeitpunkteId, &AnzahlMesswerte);
+
+
+
+	printf ("\nGesamtanzahl ergaenzter Messwerte:\t %d", AnzahlErgaenzteMesswerte);
+	/*
+  for(i=0;i<MAXMESSSTELLEN;i++){
+	  if(AnzahlMesszeitpunkteId[i]>0){
+		  printf ("\nAnzahl verarbeitbarer Messwerte zur MesstellenId %d:\t %d", i, AnzahlMesszeitpunkteId[i]);
+	  }
+  }
+
+  do{
+	ende = LiesParameter(&AnzahlWerteImMittelwert, Id, AnzahlMesszeitpunkteId);
+
+    if (ende){
+    	AnzahlMittelwerte = BerechneMittelwerte(Messwerte, Id, AnzahlWerteImMittelwert, AnzahlMesswerte, AnzahlMesszeitpunkteId);
+    }
+
+  }
+    while(ende);
+  printf("Ende");
+	 */
+	return(0);
+}
+
