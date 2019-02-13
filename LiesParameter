@@ -1,0 +1,42 @@
+/*
+ Funktion  : BOOL LiesParameter(word16 *AnzahlWerte4MW, word16 *Id, word16 *AnzahlMesswerte)
+ Aufgabe   :Einlesen der Parameter zu verarbeitende Id und MIttelwertfenster, außerdem prüfung auf korrekte eingabe
+ Eingaben  :Mittelwertfenster, Id
+ Ausgaben  :Error status
+ Autor     : Jan Taschbach
+ Version   : 02
+ Datum der letzten Änderung: 2019-02-13
+ */
+BOOL LiesParameter(word16 *AnzahlWerte4MW, word16 *id, word16 *AnzahlMesswerte){
+	BOOL Error = TRUE; //variable um auf falsche eingabe zu prüfen. Der Messwert muss existieren und die Anzahl zu berücksichtigender Messwerte im Mittelwert muss <= der Anzahl der gemessenen Messwerte für diese Id sein.
+
+	//abfrage für welche Messstelle Messwerte verarbeitet werden sollen
+	printf ("\nFuer welche MesswertId sollen Mittelwerte berechnet werden ? :\t");
+	//benutzereingabe der messwertId
+	scanf("%hd",id);
+	//prüfe auf korrekte eingabe, wenn die Id größer 0 und kleiner gleich der anzahl MAXMESSSTELLEN ist, mache weiter
+	if (*id < MAXMESSSTELLEN && *id >=0){
+		//prüfe auf korrekte EIngabe ob für diese Messstelle überhaupt Messwerte existieren
+		if (*(AnzahlMesswerte+*id)>0){
+			//eingabeaufforderung für das MittelwertFenster
+			printf ("\nWieviele Messwerte sollen im Mittelwert beruecksichtigt werden ? :\t");
+			scanf("%hd", AnzahlWerte4MW);
+			//prüfe auf korrekte Eingabe, das MittelwertFenster muss >0 und <= der Anzahl der Messwerte für diese Id sein
+			if ((*AnzahlWerte4MW > 0) && (*AnzahlWerte4MW <= AnzahlMesswerte[*id])){
+				//alle eingaben waren korrekt, ändere Error in FALSE
+				Error = FALSE;
+			}else{
+				//error ausgabe falsches Mittelwertfenster
+				printf("Falsche Eingabe\nDie Anzahl zu berücksichtigender Messwerte im Mittelwert muss <= der Anzahl der gemessenen Messwerte für diese Id sein.\n");
+			}
+		}else{
+			//error ausgabe, keine mEsswerte für diese id vorhanden
+			printf("Für diese Id existieren keine Messwerte\n");
+		}
+	}else{
+		//error ausgabe, gewäehlter Messwert liegt außerhalb der erlaubten grenzen
+		printf("Falsche Eingabe\nDer Messwert existiert nicht.\n");
+	}
+	//rückgabe des errorstatus, bei error=TRUE wird LiesParameter wiederholt gestartet
+	return (Error);
+}
